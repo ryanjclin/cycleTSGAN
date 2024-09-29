@@ -2,6 +2,7 @@
 1. cd to cycleTSGAN
 2. training: python/python3 main.py fault_id
 3. inference: python/python3 inference.py fault_id
+4. For visualizing the gen output, use visualize_gen_data.ipynb 
 
 ## requirements
 1. create a new conda env with python=3.8
@@ -11,17 +12,17 @@
 
 ## Experiment Todo:
 
-### 1. Ryan: 
-a. optimize model(gen and dis),
-b. loss fn,
-c. determine training data size
-d. (Steven and John can do it too if you want.)
+### Ryan: 
+1. optimize model(gen and dis),
+2. loss fn,
+3. determine training data size
+4. (Steven and John can do it too if you want.)
 
-### 2. Steven and John: 
-a. read SFKGAN paper (especially, experiment part), and synthetic data evaluation method in this paper (https://amulyayadav.github.io/AI4SG2023/images/7.pdf)
-b. read the code, get familiar with it. (you can rewrite code. right now the way I save checkpoint and generated data is kinda shit)
-c. use the synthetic data in generated_data/fault_01 to build evaluation model/method right now. After we generate all type of faulty data, we do a complete experiment
-d. you could modify these evaluation approach and come up with new one.
+### Steven and John: 
+1. read SFKGAN paper (especially, experiment part), and synthetic data evaluation method in this paper (https://amulyayadav.github.io/AI4SG2023/images/7.pdf) except PLackett-Luce Frechet Distance 
+2. read the code, get familiar with it. (you can rewrite code. right now the way I save checkpoint and generated data is kinda shit)
+3. use the synthetic data in generated_data/fault_01 to build evaluation model/method right now. After we generate all type of faulty data, we do a complete experiment
+4. you could modify these evaluation approach or come up with new one.
 
 
 ## Paper writing Todo: (not now)
