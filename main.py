@@ -11,11 +11,9 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 @click.command()
-@click.argument("train", default = True)
-@click.argument("inference", default = False)
 @click.option("-fault_id", "--fault_id", default = "01")
 
-def main(train, inference, fault_id):
+def main(fault_id):
     # define config
     config = {
         "epoch": 10000,
@@ -69,12 +67,7 @@ def main(train, inference, fault_id):
     # ---------------------------------- training % inference ---------------------------------------------
 
     """ train """
-    if train:
-        training(config, data, device, writer)
-
-    ''' use trained model to generate synthetic time series'''
-    if inference:
-        inferencing(config, tep_normal, device, preprocess_result, fault_id)
+    training(config, data, device, writer)
 
 
 if __name__ == "__main__":
