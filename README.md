@@ -31,7 +31,7 @@
 1. abstract,
 2. introduction,
 3. methodology (model part)
-4. 
+
 ### Steven and John: 
 1. methodology (evaluation method part)
 2. experiment 
