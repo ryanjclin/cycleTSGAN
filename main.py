@@ -18,16 +18,17 @@ def main(fault_id):
     config = {
         "epoch": 10000,
         "batch_size": 32,
-        "learning_rate": 0.0001,
+        "learning_rate": 2e-4,
         "lambda_cycle": 2,
         "lambda_identity": 0,
         "num_workers": 2,
         "dim_z": 16,
         "checkpoint": "checkpoint",
         "window_size": 80,
-        "wavelet_level": 2,
+        "wavelet_level": 3,
         "save_step": 2000, # 2000
         "generated_data": "generated_data",
+        "n_critic": 1,
     }
 
     # ---------------------------------- setup & data preprocessing ---------------------------------------------

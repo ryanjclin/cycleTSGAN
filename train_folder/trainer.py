@@ -137,48 +137,49 @@ def training(config, data, device, writer):
             D_losses.append(D_Normal_loss.data.cpu().numpy() + D_Fault_loss.data.cpu().numpy())
                 
             '''Train Generators Fault and Normal'''
-            # adversarial loss for both generators
-            Disc_Normal_fake = disc_Normal(fake_normal)
-            Disc_Fault_fake = disc_Fault(fake_fault)
-            loss_G_Normal = -torch.mean(Disc_Normal_fake) # first version of WGAN loss
-            loss_G_Fault = -torch.mean(Disc_Fault_fake)   # first version of WGAN loss
+            if i % config['n_critic'] == 0:
+                # adversarial loss for both generators
+                Disc_Normal_fake = disc_Normal(fake_normal)
+                Disc_Fault_fake = disc_Fault(fake_fault)
+                loss_G_Normal = -torch.mean(Disc_Normal_fake) # first version of WGAN loss
+                loss_G_Fault = -torch.mean(Disc_Fault_fake)   # first version of WGAN loss
 
-            # cycle loss
-            cycle_fault = gen_NormalToFault(fake_normal)
-            cycle_normal = gen_FaultToNormal(fake_fault)
+                # cycle loss
+                cycle_fault = gen_NormalToFault(fake_normal)
+                cycle_normal = gen_FaultToNormal(fake_fault)
 
-            # '''use L1 as generator loss'''
-            cycle_normal_loss = L1(x_normal, cycle_normal)  
-            cycle_fault_loss = L1(x_fault, cycle_fault)
-            # '''use sinkhorn as generator loss'''
-            # cycle_normal_loss = sinkhorn_loss_fn(x_normal, cycle_normal, device, config)  
-            # cycle_fault_loss = sinkhorn_loss_fn(x_fault, cycle_fault, device, config)
+                # '''use L1 as generator loss'''
+                cycle_normal_loss = L1(x_normal, cycle_normal)  
+                cycle_fault_loss = L1(x_fault, cycle_fault)
+                # '''use sinkhorn as generator loss'''
+                # cycle_normal_loss = sinkhorn_loss_fn(x_normal, cycle_normal, device, config)  
+                # cycle_fault_loss = sinkhorn_loss_fn(x_fault, cycle_fault, device, config)
 
-            #  identity loss (remove these for efficiency if you set lambda_identity=0)
-            identity_fault = gen_NormalToFault(x_fault)
-            identity_normal = gen_FaultToNormal(x_normal)
+                #  identity loss (remove these for efficiency if you set lambda_identity=0)
+                identity_fault = gen_NormalToFault(x_fault)
+                identity_normal = gen_FaultToNormal(x_normal)
 
-            # '''use L1 as generator loss'''
-            identity_fault_loss = L1(x_fault, identity_fault)
-            identity_normal_loss = L1(x_normal, identity_normal)
-            # '''use sinkhorn as generator loss'''
-            # identity_fault_loss = sinkhorn_loss_fn(x_fault, identity_fault, device, config)
-            # identity_normal_loss = sinkhorn_loss_fn(x_normal, identity_normal, device, config)
+                # '''use L1 as generator loss'''
+                identity_fault_loss = L1(x_fault, identity_fault)
+                identity_normal_loss = L1(x_normal, identity_normal)
+                # '''use sinkhorn as generator loss'''
+                # identity_fault_loss = sinkhorn_loss_fn(x_fault, identity_fault, device, config)
+                # identity_normal_loss = sinkhorn_loss_fn(x_normal, identity_normal, device, config)
 
 
-            # add all togethor
-            G_loss = (
-                loss_G_Normal + loss_G_Fault
-                + (cycle_normal_loss + cycle_fault_loss) * config['lambda_cycle']
-                + (identity_fault_loss + identity_normal_loss) * config['lambda_identity'] 
-            )
+                # add all togethor
+                G_loss = (
+                    loss_G_Normal + loss_G_Fault
+                    + (cycle_normal_loss + cycle_fault_loss) * config['lambda_cycle']
+                    + (identity_fault_loss + identity_normal_loss) * config['lambda_identity'] 
+                )
 
-            opt_gen.zero_grad()
-            G_loss.backward()
-            opt_gen.step()   
-            
-            G_losses.append(G_loss.data.cpu().numpy())
-            cycle_loss.append((cycle_normal_loss + cycle_fault_loss).data.cpu().numpy())
+                opt_gen.zero_grad()
+                G_loss.backward()
+                opt_gen.step()   
+                
+                G_losses.append(G_loss.data.cpu().numpy())
+                cycle_loss.append((cycle_normal_loss + cycle_fault_loss).data.cpu().numpy())
 
         ############        show loss      #######################
         if (epoch) % 1 == 0:
