@@ -1,20 +1,13 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 import torch.utils.data as Data
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import os, sys, time
-import pywt
-from statsmodels.stats.diagnostic import acorr_ljungbox  
-from fastdtw import fastdtw
-from collections import defaultdict 
+import os, time
+from tqdm import tqdm
 
 from model.generator import Generator
 from model.discriminator import Discriminator
-
 
 
 def sinkhorn(r, c, M, device, reg=1, error_thres=1e-4, num_iters=50):
@@ -44,16 +37,31 @@ def sinkhorn(r, c, M, device, reg=1, error_thres=1e-4, num_iters=50):
     return distance
 
 def sinkhorn_loss_fn(data1, data2, device, config):
-    M = torch.cdist(data1, data2, p=2)  # (batch_size, var_num, var_num)
+    """
+    data1: [batch_size, var_num, seq_len]
+    data2: [batch_size, var_num, seq_len]
+    """
 
-    # 定義邊際分布 r 和 c，這裡使用均勻分布
-    r = torch.ones(config['batch_size'], config['var_num']).to(device) / config['var_num']
-    c = torch.ones(config['batch_size'], config['var_num']).to(device) / config['var_num']
+    batch_loss = 0
+    for i in range(config["batch_size"]):
+        dat1 = data1[i, :, :]
+        dat2 = data2[i, :, :]
 
-    # 使用 Sinkhorn 函數計算兩個數據之間的差異性
-    distance = sinkhorn(r, c, M, device)
+        M = torch.cdist(dat1, dat2)
 
-    return distance
+        r = torch.ones(config["var_num"]) / config["var_num"]  # r's shape (88,)
+        r = r.to(device)
+        c = torch.ones(config["var_num"]) / config["var_num"]  # c's shape (88,)
+        c = c.to(device)
+
+        distance = sinkhorn(r=r.unsqueeze(0), 
+                        c=c.unsqueeze(0), 
+                        M=M.unsqueeze(0), 
+                        device=device)
+
+        batch_loss += distance
+
+    return batch_loss
 
 def training(config, data, device, writer):
     fre_normal = data['normal']
@@ -64,8 +72,8 @@ def training(config, data, device, writer):
     torch_dataset = Data.TensorDataset(torch.Tensor(fre_faulty), torch.Tensor(fre_normal))
     data_loader = Data.DataLoader(dataset = torch_dataset, batch_size = config['batch_size'], shuffle = False, num_workers = config['num_workers'], drop_last = False)
 
-    disc_Fault = Discriminator(config['batch_size'], config['var_num'], config['seq_len']).to(device)
-    disc_Normal = Discriminator(config['batch_size'], config['var_num'], config['seq_len']).to(device)
+    disc_Fault = Discriminator(config['batch_size'], config['var_num'], config['seq_len'], config['dim_z']).to(device)
+    disc_Normal = Discriminator(config['batch_size'], config['var_num'], config['seq_len'], config['dim_z']).to(device)
     gen_FaultToNormal = Generator(config['batch_size'], config['var_num'], config['seq_len'], config['dim_z']).to(device) # fault to normal
     gen_NormalToFault = Generator(config['batch_size'], config['var_num'], config['seq_len'], config['dim_z']).to(device) # normal to fault
 
@@ -86,9 +94,10 @@ def training(config, data, device, writer):
     time_start=time.time()
     print('training start!')
 
-    for epoch in range(1, config['epoch'] + 1):
+    for epoch in tqdm(range(1, config['epoch'] + 1)):
         G_losses = []
         D_losses = []    
+        cycle_loss = []
         
         time_start_epoch = time.time()
         
@@ -157,14 +166,6 @@ def training(config, data, device, writer):
             # identity_normal_loss = sinkhorn_loss_fn(x_normal, identity_normal, device, config)
 
 
-
-            # print(f"loss_G_Normal: {loss_G_Normal.shape}")
-            # print(f"loss_G_Fault: {loss_G_Fault.shape}")
-            # print(f"cycle_normal_loss: {cycle_normal_loss.shape}")
-            # print(f"cycle_fault_loss: {cycle_fault_loss.shape}")
-            # print(f"identity_fault_loss: {identity_fault_loss.shape}")
-            # print(f"identity_normal_loss: {identity_normal_loss.shape}")
-
             # add all togethor
             G_loss = (
                 loss_G_Normal + loss_G_Fault
@@ -177,10 +178,11 @@ def training(config, data, device, writer):
             opt_gen.step()   
             
             G_losses.append(G_loss.data.cpu().numpy())
-            
+            cycle_loss.append((cycle_normal_loss + cycle_fault_loss).data.cpu().numpy())
+
         ############        show loss      #######################
         if (epoch) % 1 == 0:
-            print('[%d/%d] loss_d: %.3f, loss_g: %.3f'%((epoch + 1), config['epoch'], np.mean(D_losses), np.mean(G_losses)))
+            print(f"epoch: {(epoch + 1)}/{config['epoch']}, d_loss: {np.mean(D_losses)} g_loss: {np.mean(G_losses)}, cycle_loss: {np.mean(cycle_loss)}")
             writer.add_scalar("G_losses", np.mean(G_losses), epoch)
             writer.add_scalar("D_losses", np.mean(D_losses), epoch)
 
