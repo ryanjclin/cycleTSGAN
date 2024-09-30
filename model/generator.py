@@ -46,10 +46,14 @@ class PositionalEncoding(nn.Module):
         )
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
+        # flatten
+        pe.flatten()
         pe = pe.unsqueeze(0)
         self.register_buffer("pe", pe)
 
     def forward(self, x):
+        print(self.pe.shape)
+        print(x.shape)
         x = x + self.pe[:, : x.size(1), :]
         return x
 
@@ -92,7 +96,7 @@ class MultiLayerTransformerEncoder(nn.Module):
         self.norm = nn.LayerNorm(d_model)
 
     def forward(self, src):
-        # src = self.pos_encoder(src) # we do not do position encoding
+        src = self.pos_encoder(src) # we do not do position encoding
         for layer in self.layers:
             src = layer(src)
         src = self.norm(src)
