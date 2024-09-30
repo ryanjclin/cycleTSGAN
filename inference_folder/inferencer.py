@@ -8,16 +8,20 @@ from utils.simple_operation import normalize_fre, normalize_fre_reverse
 
 def inferencing(config, tep_normal, device, preprocess_result, fault_id):
 
-    gen_NormalToFault = Generator(config['batch_size'], config['var_num'], config['seq_len'], config['dim_z']).to(device) # normal to fault
-    gen_NormalToFault.load_state_dict(torch.load(config['checkpoint'] + f"/gen_NormalToFault_4000.bin"))  # use the checkpoint you want
+    # load trained model
+    gen_NormalToFault = Generator(config['batch_size'], config['var_num'], config['seq_len'], preprocess_result['filtered_source_encoding']).to(device) # normal to fault
+    gen_NormalToFault.load_state_dict(torch.load(config['checkpoint'] + f"/gen_NormalToFault_10000_L1.bin"))  # use the checkpoint you want
+    gen_NormalToFault.eval()
+
     # load normal data for fault transformation
     time_noral = tep_normal[400: 400 + (config['window_size'] + config['batch_size']) ]
 
     # window slidind and wavelet
-    fre_normal, fre_msg_length_record = add_window_wavelet(time_noral, config['window_size'], config['wavelet_level'])
+    fre_normal, fre_msg_length_record, source_encoding = add_window_wavelet(time_noral, config['window_size'], config['wavelet_level'])
 
     # remove white noise
-    fre_normal, _ = var_divide_train_keep(fre_normal, preprocess_result['white_noise_record_fault'])
+    fre_normal, mean, std = var_divide_train_keep(fre_normal, preprocess_result['white_noise_record_fault'], source_encoding)
+    # fre_normal, _, _ = var_divide_train_keep(fre_normal, preprocess_result['white_noise_record_fault'], source_encoding)
 
     # normalization
     # fre_normal_norm, mean, std = normalize_fre(fre_normal)
@@ -25,8 +29,10 @@ def inferencing(config, tep_normal, device, preprocess_result, fault_id):
 
     # generation
     gen_fre_fault = gen_NormalToFault(torch.Tensor(fre_normal_norm).to(device)).to(device)
-    # gen_fre_fault = normalize_fre_reverse(gen_fre_fault.data.cpu().numpy(), mean, std)
-    gen_fre_fault = normalize_fre_reverse(gen_fre_fault.data.cpu().numpy(), preprocess_result['data_mean'], preprocess_result['data_std'])
+
+    # reverse normalization
+    gen_fre_fault = normalize_fre_reverse(gen_fre_fault.data.cpu().numpy(), mean, std)
+    # gen_fre_fault = normalize_fre_reverse(gen_fre_fault.data.cpu().numpy(), preprocess_result['data_mean'], preprocess_result['data_std'])
 
     # only use the last window synthetic time series
     gen_fre_fault = gen_fre_fault[-1]

@@ -3,44 +3,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 
-# class Discriminator(nn.Module):
-#     def __init__(self, batch_size, var_num, seq_len):
-#         super(Discriminator, self).__init__()
-#         self.batch_size = batch_size
-#         self.var_num = var_num
-#         self.seq_len = seq_len
-
-#         self.fc1 = nn.Linear(self.var_num, 256)
-#         self.lstm1 = self.lstm_layer(256, 128, 1)
-#         self.fc2 = nn.Linear(128, 1)
-        
-#     def lstm_layer(self, input_size, hidden_size, num_layers, bidirectional=False):
-#         module = nn.LSTM(
-#             input_size = input_size,
-#             hidden_size = hidden_size,
-#             num_layers = num_layers,
-#             bidirectional = bidirectional,
-#             batch_first = True,)
-#         return module
-
-#     def forward(self, x):
-#         '''x : [batch_size, var_num, seq_len]'''
-        
-#         x = x.reshape((self.batch_size, self.seq_len, self.var_num))
-
-#         x = F.relu(self.fc1(x))
-#         x, (hn, cn) = self.lstm1(x)
-#         x = F.relu(x)
-#         x = F.relu(self.fc2(x))
-#         x = x.reshape((self.batch_size, self.seq_len*1))
-
-#         return x
-
-
 # Positional Encoding
 class PositionalEncoding(nn.Module):
-    def __init__(self, d_model, max_len=5000):
+    def __init__(self, d_model, source_encoding):
         super(PositionalEncoding, self).__init__()
+        # 使用 source_encoding 的長度作為 max_len
+        max_len = len(source_encoding)
+        
+        # 確保 max_len 是整數，並生成 positional encoding
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
         div_term = torch.exp(
@@ -48,11 +18,26 @@ class PositionalEncoding(nn.Module):
         )
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0)
+        pe = pe.unsqueeze(0)  # shape: [1, max_len, d_model]
+        
+        # 保存生成的 positional encoding
         self.register_buffer("pe", pe)
+        
+        # 保存自定義的 source_encoding
+        self.source_encoding = torch.tensor(source_encoding, dtype=torch.long)
 
-    def forward(self, x):
-        x = x + self.pe[:, : x.size(1), :]
+    def forward(self, x):  # [var_num, batch_size, d_model]
+        # x 的 shape: [var_num, batch_size, d_model]
+        # 使用 source_encoding 為每個變數取對應的 positional encoding
+        var_num = x.size(0)
+        batch_size = x.size(1)
+
+        # 利用 source_encoding 來選擇對應的 position encoding
+        pe_indices = self.source_encoding.unsqueeze(1).expand(-1, batch_size)
+        custom_pe = self.pe[:, pe_indices, :].squeeze(0)  # shape: [var_num, batch_size, d_model]
+
+        # 加上 positional encoding
+        x = x + custom_pe
         return x
 
 # single layer Transformer Encoder
@@ -81,9 +66,9 @@ class TransformerEncoderLayer(nn.Module):
 
 # multi-layer Transformer Encoder
 class MultiLayerTransformerEncoder(nn.Module):
-    def __init__(self, num_layers, d_model, nhead, dim_feedforward, dropout):
+    def __init__(self, num_layers, d_model, nhead, dim_feedforward, dropout, source_encoding):
         super(MultiLayerTransformerEncoder, self).__init__()
-        self.pos_encoder = PositionalEncoding(d_model)
+        self.pos_encoder = PositionalEncoding(d_model, source_encoding)
         self.layers = nn.ModuleList(
             [
                 TransformerEncoderLayer(d_model, nhead, dim_feedforward, dropout)
@@ -107,8 +92,8 @@ class Discriminator(nn.Module):
         batch_size,
         var_num,
         seq_len,
-        dim_z,
-        num_layers = 2,
+        source_encoding,
+        num_layers = 4,
         d_model = 256 * 3,
         nhead = 3,
         dim_feedforward = 1024,
@@ -126,7 +111,7 @@ class Discriminator(nn.Module):
         self.batch_size = batch_size
         self.var_num = var_num
         self.seq_len = seq_len
-        self.dim_z = dim_z
+        self.source_encoding = source_encoding
 
         # define multi-layer Transformer Encoder
         self.transformer_encoder = MultiLayerTransformerEncoder(
@@ -135,6 +120,7 @@ class Discriminator(nn.Module):
             nhead = nhead,
             dim_feedforward = dim_feedforward,
             dropout = dropout,
+            source_encoding = self.source_encoding,
         )
 
         # adjust input and output dimension
@@ -142,9 +128,9 @@ class Discriminator(nn.Module):
         self.output_fc = nn.Linear(d_model, self.seq_len)
 
         # FC layer 
-        self.fc1 = nn.Linear(self.seq_len, 64)
-        self.fc2 = nn.Linear(64, 32)
-        self.fc3 = nn.Linear(32, 1)
+        self.fc1 = nn.Linear(self.seq_len, 128)
+        self.fc2 = nn.Linear(128, 256)
+        self.fc3 = nn.Linear(256, 512)
 
     def forward(self, x):
         """x : [batch_size, var_num, seq_len]"""
@@ -169,4 +155,7 @@ class Discriminator(nn.Module):
         x = self.fc2(x)
         x = self.fc3(x)
 
-        return x
+        # avg pooling 
+        avg_pool_x = torch.mean(x, dim=1)
+
+        return avg_pool_x

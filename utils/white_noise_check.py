@@ -15,7 +15,8 @@ def white_check(data, wavelet_level):
         for j in range(len(coeffs)):
             white_noise_test = acorr_ljungbox(coeffs[j], return_df = True)
             if white_noise_test['lb_pvalue'].values[0] >= 0.05: # it's white noise
-                white_check_list.append(1)
+                # white_check_list.append(1)
+                white_check_list.append(0)
             else: 
                 white_check_list.append(0)
 
@@ -24,23 +25,26 @@ def white_check(data, wavelet_level):
 '''
 divide non-white noise and white noise
 '''
-def var_divide_train_keep(data, white_check_list):
+def var_divide_train_keep(data, white_check_list, source_encoding):
     
     data = data.transpose([0, 2, 1])  # [sample_size, seq_len, var_num]    
 
     data_to_train = []
     data_to_keep = []
+    filter_source_encoding = []
     
     for i in range(len(white_check_list)):
         if white_check_list[i] == 0:
             data_to_train.append(data[:,:,i])
+            filter_source_encoding.append(source_encoding[i])
         else: 
             data_to_keep.append(data[:,:,i])
             
     data_to_train = np.array(data_to_train).transpose([1, 0, 2]) # [sample_size, var_num, seq_len]
-    data_to_keep = np.array(data_to_keep).transpose([1, 0, 2])[-1]
-    
-    return data_to_train, data_to_keep
+    data_to_keep = np.array(data_to_keep)#.transpose([1, 0, 2])[-1]
+    filter_source_encoding = np.array(filter_source_encoding)
+
+    return data_to_train, data_to_keep, filter_source_encoding
 
 
 
