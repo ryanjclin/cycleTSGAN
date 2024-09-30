@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import os
 import click
+import json
 
 from utils.preprocessing import data_preprocessing
 from train_folder.trainer import training
@@ -15,21 +16,8 @@ from torch.utils.tensorboard import SummaryWriter
 
 def main(fault_id):
     # define config
-    config = {
-        "epoch": 10000,
-        "batch_size": 32,
-        "learning_rate": 2e-4,
-        "lambda_cycle": 2,
-        "lambda_identity": 0,
-        "num_workers": 2,
-        "dim_z": 16,
-        "checkpoint": "checkpoint",
-        "window_size": 80,
-        "wavelet_level": 3,
-        "save_step": 2000, # 2000
-        "generated_data": "generated_data",
-        "n_critic": 1,
-    }
+    with open('config.json', 'r') as f:
+        config = json.load(f)
 
     # ---------------------------------- setup & data preprocessing ---------------------------------------------
 
@@ -68,7 +56,7 @@ def main(fault_id):
     # ---------------------------------- training % inference ---------------------------------------------
 
     """ train """
-    training(config, data, device, writer)
+    training(config, data, device, writer, preprocess_result)
 
 
 if __name__ == "__main__":

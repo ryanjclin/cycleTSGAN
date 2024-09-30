@@ -32,15 +32,15 @@ def data_preprocessing(data_normal, data_fault, config):
     white_noise_record_fault = white_check(data_fault, config['wavelet_level'])
 
     # add sliding window and do wavelet
-    fre_faulty, _ = add_window_wavelet(data_fault, config['window_size'], config['wavelet_level']) # [sample_size, var_num, seq_len]
-    fre_normal, _ = add_window_wavelet(data_normal, config['window_size'], config['wavelet_level']) # [sample_size, var_num, seq_len]
+    fre_faulty, _, source_encoding = add_window_wavelet(data_fault, config['window_size'], config['wavelet_level']) # [sample_size, var_num, seq_len]
+    fre_normal, _, _ = add_window_wavelet(data_normal, config['window_size'], config['wavelet_level']) # [sample_size, var_num, seq_len]
 
     '''
     divide white noise fre msg and non-white noise msg
     only use non-white noise msg to train model, because white noise fre msg does not contain useful msg
     '''
-    fre_faulty, fre_faulty_white_noise = var_divide_train_keep(fre_faulty, white_noise_record_fault)
-    fre_normal, _ = var_divide_train_keep(fre_normal, white_noise_record_fault)
+    fre_faulty, fre_faulty_white_noise, filtered_source_encoding = var_divide_train_keep(fre_faulty, white_noise_record_fault, source_encoding)
+    fre_normal, _, _ = var_divide_train_keep(fre_normal, white_noise_record_fault, source_encoding)
 
     # normalize fre msg
     fre_faulty_norm, data_mean, data_std = normalize_fre(fre_faulty)
@@ -53,6 +53,7 @@ def data_preprocessing(data_normal, data_fault, config):
         'data_mean': data_mean,
         'data_std': data_std,
         'fre_faulty_white_noise': fre_faulty_white_noise,
+        'filtered_source_encoding': filtered_source_encoding,
     }
 
     return preprocess_result

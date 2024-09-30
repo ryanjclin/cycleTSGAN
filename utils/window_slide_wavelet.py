@@ -9,12 +9,14 @@ later, we do white noise chech to remove white noise msg no matter it is high or
 def add_window_wavelet(time_series, time_step, wavelet_level):
 
     frq_msg_window = []
+    source_encoding = []
+    fre_msg_length_record = []
 
     for i in range(len(time_series)-time_step): # sliding window
         dat = time_series[i:i+time_step] 
 
         fre_all_var = []
-        fre_msg_length_record = []
+
         for j in range(dat.shape[1]):  # iterate every variable to do wavelet decomposition
             coeffs = pywt.wavedec(dat[:,j], 'db1', level = wavelet_level, mode='sym') # a time series converted into multiple fre pieces, each of which contains a certrain fre msg
 
@@ -26,13 +28,16 @@ def add_window_wavelet(time_series, time_step, wavelet_level):
                 multiplier = int(longest_coeffs / len(coeffs[k]))
 
                 uniform_high_fre = list(coeffs[k])
-                for i in range(multiplier-1):  # repeat the short one until its len aligns with the longest one
+                for _ in range(multiplier-1):  # repeat the short one until its len aligns with the longest one
                     uniform_high_fre += list(coeffs[k])
 
                 fre_one_var.append(uniform_high_fre)
                 
                 if j == 0 and i == 0:
                     fre_msg_length_record.append(len(coeffs[k]))
+
+                if i == 0:
+                    source_encoding.append(j)
 
             #     print(f"len(coeffs[k]): {len(coeffs[k])}")
             # raise
@@ -46,7 +51,7 @@ def add_window_wavelet(time_series, time_step, wavelet_level):
     frq_msg_window = np.array(frq_msg_window) # [sample_size, var_num, seq_len]
     # frq_msg_window = frq_msg_window.transpose([0, 2, 1])  # [sample_size, seq_len, var_num]    
 
-    return frq_msg_window, fre_msg_length_record
+    return frq_msg_window, fre_msg_length_record, source_encoding
 
 
 
