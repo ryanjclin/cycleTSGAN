@@ -6,7 +6,7 @@ from utils.window_slide_wavelet import add_window_wavelet, reverse_wavelet
 from utils.white_noise_check import var_divide_train_keep, combine_whiteNoise_with_nonWhiteNoise
 from utils.simple_operation import normalize_fre, normalize_fre_reverse
 
-def inferencing(config, tep_normal, device, fault_id):
+def inferencing(config, tep_normal, device, fault_id, preprocess_result):
 
     # load normal data for fault transformation
     time_noral = tep_normal[400: 400 + (config['window_size'] + config['batch_size']) ]
@@ -15,11 +15,12 @@ def inferencing(config, tep_normal, device, fault_id):
     fre_normal, fre_msg_length_record, source_encoding = add_window_wavelet(time_noral, config['window_size'], config['wavelet_level'])
 
     # normalization
-    fre_normal_norm, mean, std = normalize_fre(fre_normal)
+    # fre_normal_norm, mean, std = normalize_fre(fre_normal)
+    fre_normal_norm, _, _ = normalize_fre(fre_normal)
 
     # load trained model
     gen_NormalToFault = Generator(config, source_encoding).to(device) # normal to fault
-    gen_NormalToFault.load_state_dict(torch.load(config['checkpoint'] + f"/gen_NormalToFault_1.bin"))  # use the checkpoint you want
+    gen_NormalToFault.load_state_dict(torch.load(config['checkpoint'] + f"/gen_NormalToFault_8000.bin"))  # use the checkpoint you want
     gen_NormalToFault.eval()
 
     # generation
@@ -27,7 +28,8 @@ def inferencing(config, tep_normal, device, fault_id):
     gen_fre_fault = gen_NormalToFault(fre_normal_norm)
 
     # reverse normalization
-    gen_fre_fault = normalize_fre_reverse(gen_fre_fault.data.cpu().numpy(), mean, std)
+    # gen_fre_fault = normalize_fre_reverse(gen_fre_fault.data.cpu().numpy(), mean, std)
+    gen_fre_fault = normalize_fre_reverse(gen_fre_fault.data.cpu().numpy(), preprocess_result['data_mean'], preprocess_result['data_std'])
 
     # only use the last window synthetic time series
     gen_fre_fault = gen_fre_fault[-1]

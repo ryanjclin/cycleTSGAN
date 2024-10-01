@@ -29,7 +29,7 @@ def get_constant_then_linear_decay_schedule(optimizer: Optimizer, start_decay_ep
         if current_epoch < start_decay_epoch:
             return 1.0
         return max(
-            0.0, 
+            2e-6, 
             (total_epochs - current_epoch) / (total_epochs - start_decay_epoch)
         )
 

@@ -147,7 +147,7 @@ class Discriminator(nn.Module):
         x = self.fc2(x)
         x = self.fc3(x)
 
-        # avg pooling 
-        avg_pool_x = torch.mean(x, dim=1)
+        # # avg pooling 
+        # avg_pool_x = torch.mean(x, dim=1)
 
-        return avg_pool_x
+        return x
