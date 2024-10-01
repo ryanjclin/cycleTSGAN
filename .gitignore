@@ -1,2 +1,4 @@
 /checkpoint
 /logs
+__pycache__/
+*.ipynb
