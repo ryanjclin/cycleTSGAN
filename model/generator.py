@@ -19,26 +19,14 @@ class PositionalEncoding(nn.Module):
         )
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
-<<<<<<< HEAD
-        # flatten
-        pe.flatten()
-        pe = pe.unsqueeze(0)
-=======
         pe = pe.unsqueeze(0)  # shape: [1, max_len, d_model]
         
         # 保存生成的 positional encoding
->>>>>>> 6a2420677780346e91b30271a80e53b860d423b4
         self.register_buffer("pe", pe)
         
         # 保存自定義的 source_encoding
         self.source_encoding = torch.tensor(source_encoding, dtype=torch.long)
 
-<<<<<<< HEAD
-    def forward(self, x):
-        print(self.pe.shape)
-        print(x.shape)
-        x = x + self.pe[:, : x.size(1), :]
-=======
     def forward(self, x):  # [var_num, batch_size, d_model]
         # x 的 shape: [var_num, batch_size, d_model]
         # 使用 source_encoding 為每個變數取對應的 positional encoding
@@ -51,7 +39,6 @@ class PositionalEncoding(nn.Module):
 
         # 加上 positional encoding
         x = x + custom_pe
->>>>>>> 6a2420677780346e91b30271a80e53b860d423b4
         return x
 
 # single layer Transformer Encoder
@@ -92,11 +79,7 @@ class MultiLayerTransformerEncoder(nn.Module):
         self.norm = nn.LayerNorm(d_model)
 
     def forward(self, src):
-<<<<<<< HEAD
-    #     src = self.pos_encoder(src) # source encoding
-=======
-        src = self.pos_encoder(src) # we do do position encoding. [var_num, batch_size, d_model]
->>>>>>> 1db3eac32883ffc1853014597c8aa1d055eb3197
+        # src = self.pos_encoder(src) # we do do position encoding. [var_num, batch_size, d_model]
         for layer in self.layers:
             src = layer(src)
         src = self.norm(src)
