@@ -79,7 +79,7 @@ class MultiLayerTransformerEncoder(nn.Module):
         self.norm = nn.LayerNorm(d_model)
 
     def forward(self, src):
-        src = self.pos_encoder(src) # we do not do position encoding. [var_num, batch_size, d_model]
+    #     src = self.pos_encoder(src) # source encoding
         for layer in self.layers:
             src = layer(src)
         src = self.norm(src)
@@ -90,43 +90,35 @@ class MultiLayerTransformerEncoder(nn.Module):
 class Generator(nn.Module):
     def __init__(
         self,
-        batch_size,
-        var_num,
-        seq_len,
+        config,
         source_encoding,
-        num_layers = 4,
-        d_model = 256 * 3,
-        nhead = 3,
-        dim_feedforward = 1024,
-        dropout = 0.01,
-        # num_layers = 6,
-        # d_model = 512 * 4,
-        # nhead = 4,
-        # dim_feedforward = 512,
-        # dropout = 0.01,
     ):
-        assert d_model % nhead == 0, "d_model mod nhead has to be 0"
-
-        d_model = (d_model // nhead) * nhead
         super(Generator, self).__init__()
-        self.batch_size = batch_size
-        self.var_num = var_num
-        self.seq_len = seq_len
+        self.batch_size = config['batch_size']
+        self.var_num = config['var_num']
+        self.seq_len = config['seq_len']
         self.source_encoding = source_encoding
+        self.num_layers = config['gen_num_layers']
+        self.d_model = config['gen_d_model']
+        self.nhead = config['gen_nhead']
+        self.dim_feedforward = config['gen_dim_feedforward']
+        self.dropout = config['gen_dropout']
+
+        self.d_model = (self.d_model // self.nhead) * self.nhead
 
         # define multi-layer Transformer Encoder
         self.transformer_encoder = MultiLayerTransformerEncoder(
-            num_layers = num_layers,
-            d_model = d_model,
-            nhead = nhead,
-            dim_feedforward = dim_feedforward,
-            dropout = dropout,
+            num_layers = self.num_layers,
+            d_model = self.d_model,
+            nhead = self.nhead,
+            dim_feedforward = self.dim_feedforward,
+            dropout = self.dropout,
             source_encoding = self.source_encoding,
         )
 
         # adjust input and output dimension
-        self.input_fc = nn.Linear(self.seq_len, d_model)
-        self.output_fc = nn.Linear(d_model, self.seq_len)
+        self.input_fc = nn.Linear(self.seq_len, self.d_model)
+        self.output_fc = nn.Linear(self.d_model, self.seq_len)
 
     def forward(self, x):
         """x : [batch_size, var_num, seq_len]"""
@@ -147,14 +139,3 @@ class Generator(nn.Module):
         x = x.transpose(0, 1)
 
         return x
-
-
-# # 測試 Generator
-# batch_size = 32
-# var_num = 88
-# seq_len = 40
-# dim_z = 100
-# generator = Generator(batch_size, var_num, seq_len, dim_z)
-
-# # 測試數據
-# input_tensor = torch.rand(batch_size, var_num, seq_len)

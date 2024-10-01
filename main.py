@@ -31,7 +31,7 @@ def main(fault_id):
     data_normal = tep_normal[200:600]  # (sample_size, 52)
     data_fault = tep_fault[200:600]  # (sample_size, 52)
 
-    # data preprocessing includes: white noise filtering, sliding window, wavelet, fre normalization
+    # data preprocessing includes: sliding window, wavelet, fre normalization
     preprocess_result = data_preprocessing(data_normal, data_fault, config)
     data = {"normal": preprocess_result['fre_faulty_norm'], "faulty": preprocess_result['fre_normal_norm']}
 

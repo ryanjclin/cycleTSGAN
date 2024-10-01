@@ -55,7 +55,7 @@ def main(fault_id):
 
     # ----------------------------------  inference ---------------------------------------------
     ''' use trained model to generate synthetic time series'''
-    inferencing(config, tep_normal, device, preprocess_result, fault_id)
+    inferencing(config, tep_normal, device, fault_id)
 
 
 if __name__ == "__main__":

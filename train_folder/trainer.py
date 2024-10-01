@@ -36,58 +36,58 @@ def get_constant_then_linear_decay_schedule(optimizer: Optimizer, start_decay_ep
     return LambdaLR(optimizer, lr_lambda, last_epoch)
 
 
-def sinkhorn(r, c, M, device, reg=1, error_thres=1e-4, num_iters=50):
+# def sinkhorn(r, c, M, device, reg=1, error_thres=1e-4, num_iters=50):
 
-    n, d1, d2 = M.shape
+#     n, d1, d2 = M.shape
 
-    K = (-M / reg).exp()        # (n, d1, d2)
-    u = torch.ones_like(r) / d1 # (n, d1)
-    u = u.to(device)
-    v = torch.ones_like(c) / d2 # (n, d2)
-    v = v.to(device)
+#     K = (-M / reg).exp()        # (n, d1, d2)
+#     u = torch.ones_like(r) / d1 # (n, d1)
+#     u = u.to(device)
+#     v = torch.ones_like(c) / d2 # (n, d2)
+#     v = v.to(device)
 
-    for _ in range(num_iters):
-        r0 = u
-        # u = r / K \cdot v
-        u = r / (torch.einsum('ijk,ik->ij', [K, v]) )
-        # v = c / K^T \cdot u
-        v = c / (torch.einsum('ikj,ik->ij', [K, u]) )
+#     for _ in range(num_iters):
+#         r0 = u
+#         # u = r / K \cdot v
+#         u = r / (torch.einsum('ijk,ik->ij', [K, v]) )
+#         # v = c / K^T \cdot u
+#         v = c / (torch.einsum('ikj,ik->ij', [K, u]) )
 
-        err = (u - r0).abs().mean()
-        if err.item() < error_thres:
-            break
-    T = torch.einsum('ij,ik->ijk', [u, v]) * K
+#         err = (u - r0).abs().mean()
+#         if err.item() < error_thres:
+#             break
+#     T = torch.einsum('ij,ik->ijk', [u, v]) * K
 
-    distance = torch.sum(T * M)
+#     distance = torch.sum(T * M)
 
-    return distance
+#     return distance
 
-def sinkhorn_loss_fn(data1, data2, device, config):
-    """
-    data1: [batch_size, var_num, seq_len]
-    data2: [batch_size, var_num, seq_len]
-    """
+# def sinkhorn_loss_fn(data1, data2, device, config):
+#     """
+#     data1: [batch_size, var_num, seq_len]
+#     data2: [batch_size, var_num, seq_len]
+#     """
 
-    batch_loss = 0
-    for i in range(config["batch_size"]):
-        dat1 = data1[i, :, :]
-        dat2 = data2[i, :, :]
+#     batch_loss = 0
+#     for i in range(config["batch_size"]):
+#         dat1 = data1[i, :, :]
+#         dat2 = data2[i, :, :]
 
-        M = torch.cdist(dat1, dat2)
+#         M = torch.cdist(dat1, dat2)
 
-        r = torch.ones(config["var_num"]) / config["var_num"]  # r's shape (88,)
-        r = r.to(device)
-        c = torch.ones(config["var_num"]) / config["var_num"]  # c's shape (88,)
-        c = c.to(device)
+#         r = torch.ones(config["var_num"]) / config["var_num"]  # r's shape (88,)
+#         r = r.to(device)
+#         c = torch.ones(config["var_num"]) / config["var_num"]  # c's shape (88,)
+#         c = c.to(device)
 
-        distance = sinkhorn(r=r.unsqueeze(0), 
-                        c=c.unsqueeze(0), 
-                        M=M.unsqueeze(0), 
-                        device=device)
+#         distance = sinkhorn(r=r.unsqueeze(0), 
+#                         c=c.unsqueeze(0), 
+#                         M=M.unsqueeze(0), 
+#                         device=device)
 
-        batch_loss += distance
+#         batch_loss += distance
 
-    return batch_loss
+#     return batch_loss
 
 def training(config, data, device, writer, preprocess_result):
     fre_normal = data['normal']
@@ -98,10 +98,10 @@ def training(config, data, device, writer, preprocess_result):
     torch_dataset = Data.TensorDataset(torch.Tensor(fre_faulty), torch.Tensor(fre_normal))
     data_loader = Data.DataLoader(dataset = torch_dataset, batch_size = config['batch_size'], shuffle = False, num_workers = config['num_workers'], drop_last = False)
 
-    disc_Fault = Discriminator(config['batch_size'], config['var_num'], config['seq_len'], preprocess_result['filtered_source_encoding']).to(device)
-    disc_Normal = Discriminator(config['batch_size'], config['var_num'], config['seq_len'], preprocess_result['filtered_source_encoding']).to(device)
-    gen_FaultToNormal = Generator(config['batch_size'], config['var_num'], config['seq_len'], preprocess_result['filtered_source_encoding']).to(device) # fault to normal
-    gen_NormalToFault = Generator(config['batch_size'], config['var_num'], config['seq_len'], preprocess_result['filtered_source_encoding']).to(device) # normal to fault
+    disc_Fault = Discriminator(config, preprocess_result['source_encoding']).to(device)
+    disc_Normal = Discriminator(config, preprocess_result['source_encoding']).to(device)
+    gen_FaultToNormal = Generator(config, preprocess_result['source_encoding']).to(device) # fault to normal
+    gen_NormalToFault = Generator(config, preprocess_result['source_encoding']).to(device) # normal to fault
 
     disc_Fault.train()
     disc_Normal.train()
@@ -122,14 +122,14 @@ def training(config, data, device, writer, preprocess_result):
     # opt_gen = optim.Adam( list(gen_FaultToNormal.parameters()) + list(gen_NormalToFault.parameters()), lr = config['learning_rate'], betas = (0.5, 0.9),)
     opt_gen = AdamW(list(gen_FaultToNormal.parameters()) + list(gen_NormalToFault.parameters()), lr=config['learning_rate'], correct_bias=True)
 
+    ''' learning rate scheduler'''
+    # lr_scheduler_disc_Fault = get_linear_schedule_with_warmup(opt_disc_Fault, num_warmup_steps=config['warmup_steps'], num_training_steps=config['epoch'])
+    # lr_scheduler_disc_Normal = get_linear_schedule_with_warmup(opt_disc_Normal, num_warmup_steps=config['warmup_steps'], num_training_steps=config['epoch'])
+    # lr_scheduler_gen = get_linear_schedule_with_warmup(opt_gen, num_warmup_steps=config['warmup_steps'], num_training_steps=config['epoch'])
 
-    lr_scheduler_disc_Fault = get_linear_schedule_with_warmup(opt_disc_Fault, num_warmup_steps=config['warmup_steps'], num_training_steps=config['epoch'])
-    lr_scheduler_disc_Normal = get_linear_schedule_with_warmup(opt_disc_Normal, num_warmup_steps=config['warmup_steps'], num_training_steps=config['epoch'])
-    lr_scheduler_gen = get_linear_schedule_with_warmup(opt_gen, num_warmup_steps=config['warmup_steps'], num_training_steps=config['epoch'])
-
-    # lr_scheduler_disc_Fault = get_constant_then_linear_decay_schedule(opt_disc_Fault, start_decay_epoch = config['start_decay_epoch'], total_epochs = config['epoch'])
-    # lr_scheduler_disc_Normal = get_constant_then_linear_decay_schedule(opt_disc_Normal, start_decay_epoch = config['start_decay_epoch'], total_epochs = config['epoch'])
-    # lr_scheduler_gen = get_constant_then_linear_decay_schedule(opt_gen, start_decay_epoch = config['start_decay_epoch'], total_epochs = config['epoch'])
+    lr_scheduler_disc_Fault = get_constant_then_linear_decay_schedule(opt_disc_Fault, start_decay_epoch = config['start_decay_epoch'], total_epochs = config['epoch'])
+    lr_scheduler_disc_Normal = get_constant_then_linear_decay_schedule(opt_disc_Normal, start_decay_epoch = config['start_decay_epoch'], total_epochs = config['epoch'])
+    lr_scheduler_gen = get_constant_then_linear_decay_schedule(opt_gen, start_decay_epoch = config['start_decay_epoch'], total_epochs = config['epoch'])
 
     L2 = nn.MSELoss()
     L1 = nn.L1Loss()
