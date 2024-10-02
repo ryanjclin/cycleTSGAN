@@ -62,32 +62,39 @@ def get_constant_then_linear_decay_schedule(optimizer: Optimizer, start_decay_ep
 
 #     return distance
 
-# def sinkhorn_loss_fn(data1, data2, device, config):
+# def sinkhorn_loss_fn(real_data, fake_data, device, config):
 #     """
-#     data1: [batch_size, var_num, seq_len]
-#     data2: [batch_size, var_num, seq_len]
+#     real_data: [batch_size, var_num, seq_len]
+#     fake_data: [batch_size, var_num, seq_len]
 #     """
 
-#     batch_loss = 0
-#     for i in range(config["batch_size"]):
-#         dat1 = data1[i, :, :]
-#         dat2 = data2[i, :, :]
+#     loss = torch.zeros((1)).to(device)
+#     for real_dat, fake_dat in zip(real_data, fake_data):
+#         for real, fake in zip(real_dat, fake_dat):
+#             n = len(real)
+#             dist = (torch.arange(n).view(1, n) - torch.arange(n).view(n, 1)).abs().float().to(device)
+#             dist /= dist.max()
+#             distance = sinkhorn(r=real.unsqueeze(dim=0), c=fake.unsqueeze(dim=0), device=device, M=dist.unsqueeze(dim=0))
+#             loss += distance
 
-#         M = torch.cdist(dat1, dat2)
+#     return loss
 
-#         r = torch.ones(config["var_num"]) / config["var_num"]  # r's shape (88,)
-#         r = r.to(device)
-#         c = torch.ones(config["var_num"]) / config["var_num"]  # c's shape (88,)
-#         c = c.to(device)
+# def custom_L1(real_data, fake_data, device):
+#     """
+#     real_data: [batch_size, var_num, seq_len]
+#     fake_data: [batch_size, var_num, seq_len]
+#     """
 
-#         distance = sinkhorn(r=r.unsqueeze(0), 
-#                         c=c.unsqueeze(0), 
-#                         M=M.unsqueeze(0), 
-#                         device=device)
+#     L2 = nn.MSELoss()
+#     L1 = nn.L1Loss()
 
-#         batch_loss += distance
+#     loss = torch.zeros((1)).to(device)
+#     for real_dat, fake_dat in zip(real_data, fake_data):
+#         for real, fake in zip(real_dat, fake_dat):
+#             distance = L1(real, fake)
+#             loss += distance
 
-#     return batch_loss
+#     return loss
 
 def training(config, data, device, writer, preprocess_result):
     fre_normal = data['normal']
@@ -194,31 +201,38 @@ def training(config, data, device, writer, preprocess_result):
                 cycle_normal = gen_FaultToNormal(fake_fault)
 
                 # '''use L1 as generator loss'''
-                cycle_normal_loss = L1(x_normal, cycle_normal)  
+                cycle_normal_loss = L1(x_normal, cycle_normal)
                 cycle_fault_loss = L1(x_fault, cycle_fault)
+
                 # '''use sinkhorn as generator loss'''
                 # cycle_normal_loss = sinkhorn_loss_fn(x_normal, cycle_normal, device, config)  
                 # cycle_fault_loss = sinkhorn_loss_fn(x_fault, cycle_fault, device, config)
 
                 #  identity loss (remove these for efficiency if you set lambda_identity=0)
-                identity_fault = gen_NormalToFault(x_fault)
-                identity_normal = gen_FaultToNormal(x_normal)
+                if config['lambda_identity'] != 0:
+                    identity_fault = gen_NormalToFault(x_fault)
+                    identity_normal = gen_FaultToNormal(x_normal)
 
-                # '''use L1 as generator loss'''
-                identity_fault_loss = L1(x_fault, identity_fault)
-                identity_normal_loss = L1(x_normal, identity_normal)
-                # '''use sinkhorn as generator loss'''
-                # identity_fault_loss = sinkhorn_loss_fn(x_fault, identity_fault, device, config)
-                # identity_normal_loss = sinkhorn_loss_fn(x_normal, identity_normal, device, config)
+                    # '''use L1 as generator loss'''
+                    identity_fault_loss = L1(x_fault, identity_fault)
+                    identity_normal_loss = L1(x_normal, identity_normal)
+                    # '''use sinkhorn as generator loss'''
+                    # identity_fault_loss = sinkhorn_loss_fn(x_fault, identity_fault, device, config)
+                    # identity_normal_loss = sinkhorn_loss_fn(x_normal, identity_normal, device, config)
 
 
                 # add all togethor
-                G_loss = (
-                    loss_G_Normal + loss_G_Fault
-                    + (cycle_normal_loss + cycle_fault_loss) * config['lambda_cycle']
-                    + (identity_fault_loss + identity_normal_loss) * config['lambda_identity'] 
-                )
-
+                if config['lambda_identity'] != 0:
+                    G_loss = (
+                        loss_G_Normal + loss_G_Fault
+                        + (cycle_normal_loss + cycle_fault_loss) * config['lambda_cycle']
+                        + (identity_fault_loss + identity_normal_loss) * config['lambda_identity'] 
+                    )
+                else:
+                    G_loss = (
+                        loss_G_Normal + loss_G_Fault
+                        + (cycle_normal_loss + cycle_fault_loss) * config['lambda_cycle']
+                    )
                 opt_gen.zero_grad()
                 G_loss.backward()
                 opt_gen.step()   

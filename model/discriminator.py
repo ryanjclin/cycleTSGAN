@@ -121,8 +121,8 @@ class Discriminator(nn.Module):
 
         # FC layer 
         self.fc1 = nn.Linear(self.seq_len, 128)
-        self.fc2 = nn.Linear(128, 256)
-        self.fc3 = nn.Linear(256, 512)
+        self.fc2 = nn.Linear(128, 32)
+        self.fc3 = nn.Linear(32, 1)
 
     def forward(self, x):
         """x : [batch_size, var_num, seq_len]"""
@@ -142,12 +142,11 @@ class Discriminator(nn.Module):
         # 5. reverse step 1: [var_num, batch_size, seq_len] -> [batch_size, var_num, seq_len]
         x = x.transpose(0, 1)
 
-        # FC layer
+        # avg pooling  & FC layer
+        x = torch.mean(x, dim=1)
+        
         x = self.fc1(x)
         x = self.fc2(x)
         x = self.fc3(x)
-
-        # # avg pooling 
-        # avg_pool_x = torch.mean(x, dim=1)
 
         return x

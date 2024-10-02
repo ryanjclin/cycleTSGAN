@@ -1,5 +1,6 @@
 import torch
 import pandas as pd
+import numpy as np
 
 from model.generator import Generator
 from utils.window_slide_wavelet import add_window_wavelet, reverse_wavelet
@@ -20,7 +21,7 @@ def inferencing(config, tep_normal, device, fault_id, preprocess_result):
 
     # load trained model
     gen_NormalToFault = Generator(config, source_encoding).to(device) # normal to fault
-    gen_NormalToFault.load_state_dict(torch.load(config['checkpoint'] + f"/gen_NormalToFault_8000.bin"))  # use the checkpoint you want
+    gen_NormalToFault.load_state_dict(torch.load(config['checkpoint'] + f"/gen_NormalToFault_4000.bin"))  # use the checkpoint you want
     gen_NormalToFault.eval()
 
     # generation
@@ -30,9 +31,7 @@ def inferencing(config, tep_normal, device, fault_id, preprocess_result):
     # reverse normalization
     # gen_fre_fault = normalize_fre_reverse(gen_fre_fault.data.cpu().numpy(), mean, std)
     gen_fre_fault = normalize_fre_reverse(gen_fre_fault.data.cpu().numpy(), preprocess_result['data_mean'], preprocess_result['data_std'])
-
-    # only use the last window synthetic time series
-    gen_fre_fault = gen_fre_fault[-1]
+    gen_fre_fault = gen_fre_fault[0]
 
     # wavelet composition: reverse wavelet decomposition, converting fre domain back to time domain
     fre_msg_num = config['wavelet_level'] + 1 # num of fre pieces is wavelet_level + 1
