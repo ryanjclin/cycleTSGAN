@@ -11,7 +11,7 @@
 
 ## Experiment Todo:
 
-### loss functiobn
+### cycle loss function
 
 ### Ryan: 
 1. optimize model(gen and dis),
