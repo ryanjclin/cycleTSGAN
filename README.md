@@ -9,8 +9,9 @@
 2. For "pywt: pip install PyWavelets
 3. other package just follow default version
 
-
 ## Experiment Todo:
+
+### loss functiobn
 
 ### Ryan: 
 1. optimize model(gen and dis),

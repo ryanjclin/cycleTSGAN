@@ -7,8 +7,8 @@ def normalize_fre(data):
 
     last_window = data[-1,:,:]
 
-    mean = np.mean(last_window, axis=1, keepdims=True)
-    std = np.std(last_window, axis=1, keepdims=True)
+    mean = np.mean(last_window, axis=0, keepdims=True)
+    std = np.std(last_window, axis=0, keepdims=True)
 
 
     for i in range(len(data)):

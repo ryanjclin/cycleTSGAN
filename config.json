@@ -14,13 +14,13 @@
     "warmup_steps": 1000,
     "start_decay_epoch": 1000,
     "gen_num_layers": 4,
-    "gen_d_model": 2048,
+    "gen_d_model": 1024,
     "gen_nhead": 4,
-    "gen_dim_feedforward": 1024,
+    "gen_dim_feedforward": 512,
     "gen_dropout": 0.01,
     "dis_num_layers": 4,
-    "dis_d_model": 2048,
+    "dis_d_model": 1024,
     "dis_nhead": 4,
-    "dis_dim_feedforward": 1024,
+    "dis_dim_feedforward": 512,
     "dis_dropout": 0.01
 }

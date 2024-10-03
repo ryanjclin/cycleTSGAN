@@ -21,7 +21,7 @@ def inferencing(config, tep_normal, device, fault_id, preprocess_result):
 
     # load trained model
     gen_NormalToFault = Generator(config, source_encoding).to(device) # normal to fault
-    gen_NormalToFault.load_state_dict(torch.load(config['checkpoint'] + f"/gen_NormalToFault_4000.bin"))  # use the checkpoint you want
+    gen_NormalToFault.load_state_dict(torch.load(config['checkpoint'] + f"/gen_NormalToFault_1.bin"))  # use the checkpoint you want
     gen_NormalToFault.eval()
 
     # generation
