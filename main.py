@@ -5,7 +5,8 @@ import click
 import json
 
 from utils.preprocessing import data_preprocessing
-from train_folder.trainer import training
+from train_folder.trainer_wgan_2_d_opt import training2
+from train_folder.trainer_wgan_1_d_opt import training1
 from inference_folder.inferencer import inferencing
 
 from torch.utils.tensorboard import SummaryWriter
@@ -22,7 +23,7 @@ def main(fault_id):
     # ---------------------------------- setup & data preprocessing ---------------------------------------------
 
     # GPU usage
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
     # load data
     tep_normal = np.genfromtxt("tep_data/d00_te.dat")
@@ -56,7 +57,8 @@ def main(fault_id):
     # ---------------------------------- training % inference ---------------------------------------------
 
     """ train """
-    training(config, data, device, writer, preprocess_result)
+    # training1(config, data, device, writer, preprocess_result)
+    training2(config, data, device, writer, preprocess_result)
 
 
 if __name__ == "__main__":

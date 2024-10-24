@@ -16,7 +16,6 @@ def data_preprocessing(data_normal, data_fault, config):
     fre_faulty_norm, data_mean, data_std = normalize_fre(fre_faulty)
     fre_normal_norm, _, _ = normalize_fre(fre_normal)
 
-
     '''
     fre_faulty_norm: [sample_size, var_num, seq_len]
     fre_normal_norm: [sample_size, var_num, seq_len]

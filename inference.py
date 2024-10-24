@@ -5,7 +5,6 @@ import click
 import json
 
 from utils.preprocessing import data_preprocessing
-from train_folder.trainer import training
 from inference_folder.inferencer import inferencing
 
 from torch.utils.tensorboard import SummaryWriter
