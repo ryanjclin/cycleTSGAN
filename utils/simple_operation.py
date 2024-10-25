@@ -3,13 +3,15 @@ import matplotlib.pyplot as plt
 
 '''frequency domian normalization'''
 def normalize_fre(data): 
+    # data: [sample_size, var_num, seq_len]
     tep_high_fre_norm = []
 
-    last_window = data[-1,:,:]
+    last_window = data[-1,:,:] #[var_num, seq_len]
 
-    mean = np.mean(last_window, axis=0, keepdims=True)
-    std = np.std(last_window, axis=0, keepdims=True)
-
+    mean = np.mean(last_window, axis=1) # do normalization on seq_len dimension
+    mean = np.expand_dims(mean, axis=1)
+    std = np.std(last_window, axis=1)
+    std = np.expand_dims(std, axis=1)
 
     for i in range(len(data)):
         normalized_tensor = (data[i,:,:] - mean) / std
