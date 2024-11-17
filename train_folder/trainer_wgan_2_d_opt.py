@@ -173,6 +173,22 @@ def training2(config, data, device, writer, preprocess_result):
     fre_normal = data['normal']
     fre_faulty = data['faulty']
 
+    # for validation
+    real_normal_eval = fre_normal[40:80]
+    real_faulty_eval = fre_faulty[40:80]
+    real_normal_eval = torch.from_numpy(real_normal_eval).float().to(device)
+    real_faulty_eval = torch.from_numpy(real_faulty_eval).float().to(device)
+    
+    # print(f"real_normal_eval: {real_normal_eval.shape}")
+    # print(f"real_faulty_eval: {real_faulty_eval.shape}")
+    
+    # for training
+    fre_normal = fre_normal[:40]
+    fre_faulty = fre_faulty[:40]
+
+    # print(f"fre_normal: {fre_normal.shape}")
+    # print(f"fre_faulty: {fre_faulty.shape}")
+
     # ---------------------------------- model, loss fn definition ---------------------------------------------
     ''' add data into TensorDataset for efficiency'''
     torch_dataset = Data.TensorDataset(torch.Tensor(fre_faulty), torch.Tensor(fre_normal))
@@ -183,10 +199,18 @@ def training2(config, data, device, writer, preprocess_result):
     gen_FaultToNormal = Generator(config, preprocess_result['source_encoding']).to(device) # fault to normal
     gen_NormalToFault = Generator(config, preprocess_result['source_encoding']).to(device) # normal to fault
 
-    disc_Fault.load_state_dict(torch.load(config['checkpoint'] + f"/disc_Fault_4000.bin"))  # use the checkpoint you want
-    disc_Normal.load_state_dict(torch.load(config['checkpoint'] + f"/disc_Normal_4000.bin"))  # use the checkpoint you want
-    gen_FaultToNormal.load_state_dict(torch.load(config['checkpoint'] + f"/gen_FaultToNormal_4000.bin"))  # use the checkpoint you want
-    gen_NormalToFault.load_state_dict(torch.load(config['checkpoint'] + f"/gen_NormalToFault_4000.bin"))  # use the checkpoint you want
+    # 
+    # disc_Fault.load_state_dict(torch.load(config['checkpoint'] + f"/disc_Fault_60000.bin"))  # use the checkpoint you want
+    # disc_Normal.load_state_dict(torch.load(config['checkpoint'] + f"/disc_Normal_60000.bin"))  # use the checkpoint you want
+    # gen_FaultToNormal.load_state_dict(torch.load(config['checkpoint'] + f"/gen_FaultToNormal_60000.bin"))  # use the checkpoint you want
+    # gen_NormalToFault.load_state_dict(torch.load(config['checkpoint'] + f"/gen_NormalToFault_60000.bin"))  # use the checkpoint you want
+
+    # load model pretrained on simple TS
+    model_path = os.path.join("..", "cycleTSGAN_simple", config['checkpoint'])
+    disc_Fault.load_state_dict(torch.load(model_path + f"/disc_Fault_3000.bin"))  # use the checkpoint you want
+    disc_Normal.load_state_dict(torch.load(model_path + f"/disc_Normal_3000.bin"))  # use the checkpoint you want
+    gen_FaultToNormal.load_state_dict(torch.load(model_path + f"/gen_FaultToNormal_3000.bin"))  # use the checkpoint you want
+    gen_NormalToFault.load_state_dict(torch.load(model_path + f"/gen_NormalToFault_3000.bin"))  # use the checkpoint you want
 
     disc_Fault.train()
     disc_Normal.train()
@@ -205,13 +229,13 @@ def training2(config, data, device, writer, preprocess_result):
     opt_gen = AdamW(list(gen_FaultToNormal.parameters()) + list(gen_NormalToFault.parameters()), lr=config['learning_rate'], correct_bias=True)
 
     ''' learning rate scheduler'''
-    # lr_scheduler_disc_Fault = get_linear_schedule_with_warmup(opt_disc_Fault, num_warmup_steps=config['warmup_steps'], num_training_steps=config['epoch'])
-    # lr_scheduler_disc_Normal = get_linear_schedule_with_warmup(opt_disc_Normal, num_warmup_steps=config['warmup_steps'], num_training_steps=config['epoch'])
-    # lr_scheduler_gen = get_linear_schedule_with_warmup(opt_gen, num_warmup_steps=config['warmup_steps'], num_training_steps=config['epoch'])
+    lr_scheduler_disc_Fault = get_linear_schedule_with_warmup(opt_disc_Fault, num_warmup_steps=config['warmup_steps'], num_training_steps=config['epoch'])
+    lr_scheduler_disc_Normal = get_linear_schedule_with_warmup(opt_disc_Normal, num_warmup_steps=config['warmup_steps'], num_training_steps=config['epoch'])
+    lr_scheduler_gen = get_linear_schedule_with_warmup(opt_gen, num_warmup_steps=config['warmup_steps'], num_training_steps=config['epoch'])
 
-    lr_scheduler_disc_Fault = get_constant_then_linear_decay_schedule(opt_disc_Fault, start_decay_epoch = config['start_decay_epoch'], total_epochs = config['epoch'])
-    lr_scheduler_disc_Normal = get_constant_then_linear_decay_schedule(opt_disc_Normal, start_decay_epoch = config['start_decay_epoch'], total_epochs = config['epoch'])
-    lr_scheduler_gen = get_constant_then_linear_decay_schedule(opt_gen, start_decay_epoch = config['start_decay_epoch'], total_epochs = config['epoch'])
+    # lr_scheduler_disc_Fault = get_constant_then_linear_decay_schedule(opt_disc_Fault, start_decay_epoch = config['start_decay_epoch'], total_epochs = config['epoch'])
+    # lr_scheduler_disc_Normal = get_constant_then_linear_decay_schedule(opt_disc_Normal, start_decay_epoch = config['start_decay_epoch'], total_epochs = config['epoch'])
+    # lr_scheduler_gen = get_constant_then_linear_decay_schedule(opt_gen, start_decay_epoch = config['start_decay_epoch'], total_epochs = config['epoch'])
 
     L2 = nn.MSELoss()
     L1 = nn.L1Loss()
@@ -225,7 +249,8 @@ def training2(config, data, device, writer, preprocess_result):
         G_losses = []
         D_losses = []    
         cycle_loss = []
-        
+        transform_loss = []
+
         time_start_epoch = time.time()
         
         for i, data in enumerate(data_loader):
@@ -275,44 +300,39 @@ def training2(config, data, device, writer, preprocess_result):
             # cycle loss
             cycle_fault = gen_NormalToFault(fake_normal)
             cycle_normal = gen_FaultToNormal(fake_fault)
-
-            # '''use L1 as generator loss'''
             cycle_normal_loss = L1(x_normal, cycle_normal)
             cycle_fault_loss = L1(x_fault, cycle_fault)
 
-            # '''use dtw as generator loss'''
-            # cycle_normal_loss = cal_dtw(x_normal, cycle_normal, device)
-            # cycle_fault_loss = cal_dtw(x_fault, cycle_fault, device)
+            # transform loss
+            transform_fault = gen_NormalToFault(x_normal)
+            transform_normal = gen_FaultToNormal(x_fault)
 
-            # '''use sinkhorn as generator loss'''
-            # cycle_normal_loss = sinkhorn_loss_fn(x_normal, cycle_normal, device, config)  
-            # cycle_fault_loss = sinkhorn_loss_fn(x_fault, cycle_fault, device, config)
+            transform_normal_loss = L1(x_normal, transform_normal)
+            transform_fault_loss = L1(x_fault, transform_fault)
+
+            # transform_normal_loss = cal_dtw(x_normal, transform_normal, device)
+            # transform_fault_loss = cal_dtw(x_fault, transform_fault, device)
 
             #  identity loss (remove these for efficiency if you set lambda_identity=0)
             if config['lambda_identity'] != 0:
                 identity_fault = gen_NormalToFault(x_fault)
                 identity_normal = gen_FaultToNormal(x_normal)
-
-                # # '''use L1 as generator loss'''
                 identity_fault_loss = L1(x_fault, identity_fault)
                 identity_normal_loss = L1(x_normal, identity_normal)
-
-                # '''use sinkhorn as generator loss'''
-                # identity_fault_loss = sinkhorn_loss_fn(x_fault, identity_fault, device, config)
-                # identity_normal_loss = sinkhorn_loss_fn(x_normal, identity_normal, device, config)
-
 
             # add all togethor
             if config['lambda_identity'] != 0:
                 G_loss = (
                     loss_G_Normal + loss_G_Fault
                     + (cycle_normal_loss + cycle_fault_loss) * config['lambda_cycle']
+                    + (transform_normal_loss + transform_fault_loss) * config['lambda_cycle']
                     + (identity_fault_loss + identity_normal_loss) * config['lambda_identity'] 
                 )
             else:
                 G_loss = (
                     loss_G_Normal + loss_G_Fault
                     + (cycle_normal_loss + cycle_fault_loss) * config['lambda_cycle']
+                    + (transform_normal_loss + transform_fault_loss) * config['lambda_cycle']
                 )
 
             opt_gen.zero_grad()
@@ -321,6 +341,7 @@ def training2(config, data, device, writer, preprocess_result):
 
             G_losses.append(G_loss.data.cpu().numpy())
             cycle_loss.append((cycle_normal_loss + cycle_fault_loss).data.cpu().numpy())
+            transform_loss.append((transform_normal_loss + transform_fault_loss).data.cpu().numpy())
 
         lr_scheduler_disc_Normal.step()
         lr_scheduler_disc_Fault.step()
@@ -329,7 +350,7 @@ def training2(config, data, device, writer, preprocess_result):
 
         ############        show loss      #######################
         if (epoch) % 1 == 0:
-            print(f"epoch [{(epoch + 1)}/{config['epoch']}]: d_loss: {np.mean(D_losses):.6f} g_loss: {np.mean(G_losses):.6f}, cycle_loss: {np.mean(cycle_loss):.6f}")
+            print(f"epoch [{(epoch + 1)}/{config['epoch']}]: d_loss: {np.mean(D_losses):.6f} g_loss: {np.mean(G_losses):.6f}, cycle_loss: {np.mean(cycle_loss):.6f}, transform_loss: {np.mean(transform_loss):.6f}")
             
             lr_disc_Fault = lr_scheduler_disc_Fault.get_last_lr()[0]
             lr_disc_Normal = lr_scheduler_disc_Normal.get_last_lr()[0]
@@ -343,6 +364,44 @@ def training2(config, data, device, writer, preprocess_result):
         time_end_epoch = time.time()
         print('runtime per epoch', time_end_epoch - time_start_epoch,'s')         
         
+        ############        validation      #######################
+        if (epoch) % config["eval_step"] == 0:
+            
+            gen_NormalToFault.eval()
+            fake_faulty_eval = gen_NormalToFault(real_normal_eval)
+            faulty_transform_loss_eval = L1(real_faulty_eval, fake_faulty_eval)
+            # faulty_transform_loss_eval = cal_dtw(real_faulty_eval, fake_faulty_eval, device)
+            gen_NormalToFault.train()
+
+            gen_FaultToNormal.eval()
+            fake_normal_eval = gen_FaultToNormal(real_faulty_eval)
+            noraml_transform_loss_eval = L1(real_normal_eval, fake_normal_eval)
+            # noraml_transform_loss_eval = cal_dtw(real_normal_eval, fake_normal_eval, device)
+            gen_FaultToNormal.train()
+
+            print('-' * 100)
+            print(f"Validation epoch [{epoch + 1}/{config['epoch']}]: transform_loss: {faulty_transform_loss_eval+noraml_transform_loss_eval}, faulty_eval: {faulty_transform_loss_eval}, noraml_eval: {noraml_transform_loss_eval}")
+            print('-' * 100)
+
+            writer.add_scalar("faulty_transform_loss_eval", faulty_transform_loss_eval, epoch)
+            writer.add_scalar("noraml_cycle_loss_eval", noraml_transform_loss_eval, epoch)
+
+            ####################################################################################
+
+            # gen_NormalToFault.eval()
+            # fake_faulty_eval = gen_NormalToFault(x_normal)
+            # faulty_cycle_loss_eval = L1(x_fault, fake_faulty_eval)
+            # gen_NormalToFault.train()
+
+            # gen_FaultToNormal.eval()
+            # fake_normal_eval = gen_FaultToNormal(x_fault)
+            # noraml_cycle_loss_eval = L1(x_normal, fake_normal_eval)
+            # gen_FaultToNormal.train()
+
+            # print('-' * 100)
+            # print(f"Train epoch [{epoch + 1}/{config['epoch']}]: cycle_loss: {faulty_cycle_loss_eval+noraml_cycle_loss_eval}, faulty_train: {faulty_cycle_loss_eval}, noraml_train: {noraml_cycle_loss_eval}")
+            # print('-' * 100)
+
         ##########        save      #######################
         if (epoch) % config['save_step'] == 0: #5
             checkpoint_path = os.path.join(config['checkpoint'])
@@ -352,10 +411,10 @@ def training2(config, data, device, writer, preprocess_result):
             torch.save(gen_FaultToNormal.state_dict(), os.path.join(checkpoint_path, f'gen_FaultToNormal_{epoch}.bin'))
             torch.save(gen_NormalToFault.state_dict(), os.path.join(checkpoint_path, f'gen_NormalToFault_{epoch}.bin'))
 
-            torch.save(disc_Fault.state_dict(), os.path.join(checkpoint_path, f'disc_Fault_{epoch + 4000}.bin'))
-            torch.save(disc_Normal.state_dict(), os.path.join(checkpoint_path, f'disc_Normal_{epoch + 4000}.bin'))
-            torch.save(gen_FaultToNormal.state_dict(), os.path.join(checkpoint_path, f'gen_FaultToNormal_{epoch + 4000}.bin'))
-            torch.save(gen_NormalToFault.state_dict(), os.path.join(checkpoint_path, f'gen_NormalToFault_{epoch + 4000}.bin'))
+            # torch.save(disc_Fault.state_dict(), os.path.join(checkpoint_path, f'disc_Fault_{epoch + 60000}.bin'))
+            # torch.save(disc_Normal.state_dict(), os.path.join(checkpoint_path, f'disc_Normal_{epoch + 60000}.bin'))
+            # torch.save(gen_FaultToNormal.state_dict(), os.path.join(checkpoint_path, f'gen_FaultToNormal_{epoch + 60000}.bin'))
+            # torch.save(gen_NormalToFault.state_dict(), os.path.join(checkpoint_path, f'gen_NormalToFault_{epoch + 60000}.bin'))
 
             print('save success')
 
