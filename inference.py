@@ -27,8 +27,8 @@ def main(fault_id):
     tep_normal = np.genfromtxt("tep_data/d00_te.dat")
     tep_fault = np.genfromtxt(f"tep_data/d{fault_id}_te.dat")
 
-    data_normal = tep_normal[200:600]  # (sample_size, 52)
-    data_fault = tep_fault[200:600]  # (sample_size, 52)
+    data_normal = tep_normal[config['start_time_id']: config['end_time_id']]  # (sample_size, 52)
+    data_fault = tep_fault[config['start_time_id']: config['end_time_id']]  # (sample_size, 52)
 
     # data preprocessing includes: white noise filtering, sliding window, wavelet, fre normalization
     preprocess_result = data_preprocessing(data_normal, data_fault, config)

@@ -29,12 +29,17 @@ def main(fault_id):
     tep_normal = np.genfromtxt("tep_data/d00_te.dat")
     tep_fault = np.genfromtxt(f"tep_data/d{fault_id}_te.dat")
 
-    data_normal = tep_normal[200:600]  # (sample_size, 52)
-    data_fault = tep_fault[200:600]  # (sample_size, 52)
-
+    data_normal = tep_normal[config['start_time_id']: config['end_time_id'] + config['window_size']]  # (sample_size, 52)
+    data_fault = tep_fault[config['start_time_id']: config['end_time_id'] + config['window_size']]  # (sample_size, 52)
+    
     # data preprocessing includes: sliding window, wavelet, fre normalization
     preprocess_result = data_preprocessing(data_normal, data_fault, config)
     data = {"normal": preprocess_result['fre_faulty_norm'], "faulty": preprocess_result['fre_normal_norm']}
+
+    print('-' * 40)
+    print(f"preprocess_result['fre_faulty_norm']: {preprocess_result['fre_faulty_norm'].shape}")
+    print(f"preprocess_result['fre_normal_norm']: {preprocess_result['fre_normal_norm'].shape}")
+    print('-' * 40)
 
     # update config
     config["sample_size"] = preprocess_result['fre_faulty_norm'].shape[0]
