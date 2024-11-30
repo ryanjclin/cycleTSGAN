@@ -7,21 +7,26 @@ from utils.window_slide_wavelet import add_window_wavelet, reverse_wavelet
 from utils.white_noise_check import var_divide_train_keep, combine_whiteNoise_with_nonWhiteNoise
 from utils.simple_operation import normalize_fre, normalize_fre_reverse, normalize_fre_infer
 
-def inferencing(config, tep_normal, device, fault_id, preprocess_result):
+def inferencing(config, tep_normal, tep_fault, device, fault_id, preprocess_result):
 
     # load normal data for fault transformation
-    time_noral = tep_normal[config['end_time_id']: config['end_time_id'] + (config['batch_size']) ]
-    # time_noral = tep_normal[config['strat_time_id']: config['end_time_id']]
+    time_normal = tep_normal[config['start_time_id']: config['end_time_id'] + config['window_size']]  # (sample_size, 52)
+    time_fault = tep_fault[config['start_time_id']: config['end_time_id'] + config['window_size']]  # (sample_size, 52)
 
-    print(f"time_noral: {time_noral.shape}")
+    print(f"time_normal: {time_normal.shape}")
+    print(f"time_fault: {time_normal.shape}")
 
     # window slidind and wavelet (this does sliding window + wavelet decomposition)
-    fre_normal, fre_msg_length_record, source_encoding = add_window_wavelet(time_noral, config['window_size'], config['wavelet_level'])
+    fre_normal, fre_msg_length_record, source_encoding = add_window_wavelet(time_normal, config['window_size'], config['wavelet_level'])
 
     # do wavelet decomposition only
-    time_normal_windows = np.vstack([np.expand_dims(time_noral[i:i + config['window_size']], axis=0) for i in range(time_noral.shape[0] - config['window_size'])])
+    time_normal_windows = np.vstack([np.expand_dims(time_normal[i:i + config['window_size']], axis=0) for i in range(time_normal.shape[0] - config['window_size'])])
     print(f"time_normal_windows: {time_normal_windows.shape}")
     np.save(f'eval_data/real_normal.npy', time_normal_windows)
+
+    time_fault_windows = np.vstack([np.expand_dims(time_fault[i:i + config['window_size']], axis=0) for i in range(time_fault.shape[0] - config['window_size'])])
+    print(f"time_fault_windows: {time_fault_windows.shape}")
+    np.save(f'eval_data/real_fault_{fault_id}.npy', time_fault_windows)
 
     # normalization
     # fre_normal_norm, _, _ = normalize_fre(fre_normal)
@@ -29,7 +34,7 @@ def inferencing(config, tep_normal, device, fault_id, preprocess_result):
 
     # load trained model
     gen_NormalToFault = Generator(config, source_encoding).to(device) # normal to fault
-    gen_NormalToFault.load_state_dict(torch.load(config['checkpoint'] + f"/gen_NormalToFault_10000.bin"))  # use the checkpoint you want
+    gen_NormalToFault.load_state_dict(torch.load(config['checkpoint'] + f"/gen_NormalToFault_{fault_id}.bin", map_location=torch.device('cuda:0')))  # use the checkpoint you want
     gen_NormalToFault.eval()
 
     # generation

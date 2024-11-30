@@ -25,6 +25,7 @@ def main(fault_id):
 
     # load data
     tep_normal = np.genfromtxt("tep_data/d00_te.dat")
+    # tep_normal = np.genfromtxt("tep_data/d20_te.dat")
     tep_fault = np.genfromtxt(f"tep_data/d{fault_id}_te.dat")
 
     data_normal = tep_normal[config['start_time_id']: config['end_time_id']]  # (sample_size, 52)
@@ -54,7 +55,7 @@ def main(fault_id):
 
     # ----------------------------------  inference ---------------------------------------------
     ''' use trained model to generate synthetic time series'''
-    inferencing(config, tep_normal, device, fault_id, preprocess_result)
+    inferencing(config, tep_normal, tep_fault, device, fault_id, preprocess_result)
 
 
 if __name__ == "__main__":
